@@ -16,7 +16,6 @@ str(surface)
 surface.full <- surface[complete.cases(surface), ]
 surface.na <- surface[is.na(surface$Temp) == TRUE, ]
 
-# split data into what you predict(na's) and what you already observed
 ##########################
 #          EDA           #
 ##########################
@@ -36,7 +35,6 @@ ggmap(my_map) + geom_raster(data = surface, aes(x = Lon, y = Lat, fill = Temp), 
 temp.lm <- lm(Temp ~ Surface, data = surface)
 summary(temp.lm)
 resid.mat <- matrix(temp.lm$residuals, nrow = 715, ncol = 5, byrow = TRUE)
-# check this 
 ggplot() + geom_raster(aes(x = resid.mat, y = cor(resid.mat)))
 heatmap(cor(resid.mat))
 hist(cor(resid.mat))
@@ -50,8 +48,7 @@ plot(variog_func)
 
 # 1 choose among an expoential spehrical and gaussian correlation structure (w/ nuggests) by fitting each model to temp using land cover as a factor covariate. 
 # for the best fit model, identify the constrained estimates of the correlation along with any beta_hat coefficients and the estimate of the variance parameter sigma_hat^2
-# create dataset that doesnt have NA values
-surface.full <- surface[complete.cases(surface), ]
+
 
 exp_mod <- gls(model = Temp ~ Surface, data = surface.full, correlation = corExp(form = ~ Lon + Lat, nugget = TRUE), method = 'ML')
 AIC(exp_mod)
