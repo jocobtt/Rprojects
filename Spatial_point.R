@@ -19,26 +19,26 @@ surface.na <- surface[is.na(surface$Temp) == TRUE, ]
 ##########################
 #          EDA           #
 ##########################
-# 1 side by side boxplots of temp by land cover type
+# side by side boxplots of temp by land cover type
 
 ggplot(data = surface, aes(x = Surface, y = Temp)) + geom_boxplot()
 
-# 2 heat map of temperature over houston 
+# heat map of temperature over houston 
 ggplot(data = surface, mapping = aes(x = Lon, y = Lat, fill = Temp)) + geom_raster() + scale_fill_distiller(palette = 'Spectral', na.value = NA)
 # make above heatmap fit on map of dallas
-register_google(key = 'AIzaSyBYyAM4lUPH1ejCGdNiPsrR3rnzwPqwgJ0')
+register_google(key = 'my_key')
 bb <- make_bbox(lon = Lon, lat = Lat, data = surface)
 my_map <- get_map(location = bb, zoom = 11, maptype = 'satellite')
 ggmap(my_map) + geom_raster(data = surface, aes(x = Lon, y = Lat, fill = Temp), alpha = 0.8) + scale_fill_distiller(palette = 'Spectral', na.value = NA) + coord_cartesian()
 
-# 3 fit a lm() of temp by land cover type and plot a map of the residuals to convince yourself that the residuals are correlated
+# fit a lm() of temp by land cover type and plot a map of the residuals to convince yourself that the residuals are correlated
 temp.lm <- lm(Temp ~ Surface, data = surface)
 summary(temp.lm)
 resid.mat <- matrix(temp.lm$residuals, nrow = 715, ncol = 5, byrow = TRUE)
 ggplot() + geom_raster(aes(x = resid.mat, y = cor(resid.mat)))
 heatmap(cor(resid.mat))
 hist(cor(resid.mat))
-# 4 draw a variogram of the residuals from an lm() fit of temperature to land cover type 
+# draw a variogram of the residuals from an lm() fit of temperature to land cover type 
 variog_func <- variog(coords = surface.full, data = temp.lm$residuals)
 plot(variog_func)
 
@@ -46,8 +46,7 @@ plot(variog_func)
 #   Spatial MLR model    #
 ##########################
 
-# 1 choose among an expoential spehrical and gaussian correlation structure (w/ nuggests) by fitting each model to temp using land cover as a factor covariate. 
-# for the best fit model, identify the constrained estimates of the correlation along with any beta_hat coefficients and the estimate of the variance parameter sigma_hat^2
+# choose among an expoential spehrical and gaussian correlation structure (w/ nuggests)
 
 
 exp_mod <- gls(model = Temp ~ Surface, data = surface.full, correlation = corExp(form = ~ Lon + Lat, nugget = TRUE), method = 'ML')
@@ -73,25 +72,25 @@ variance
 #   Model Validation and prediction      #
 ##########################################
 
-# 1 check linearity 
+# check linearity 
 car::avPlots(temp.lm)
-# 2 check independence 
+# check independence 
 decor_resid <- stdres.gls(gaus_mod)
 mat_resid <- matrix(decor_resid, nrow = 715, ncol = 5, byrow = TRUE)
 hist(cor(mat_resid))
-# 3 check normaility assumption 
+# check normaility assumption 
 ggplot() + geom_histogram(aes(x = decor_resid))
 
-# 4 check equal variance 
+# check equal variance 
 ggplot() + geom_point(aes(x = fitted(gaus_mod), y = decor_resid))
 
-# 5 clock how long it takes to fit the spatial model with system.time()
+# clock how long it takes to fit the spatial model with system.time()
 system.time({
   gaus_mod <- gls(model = Temp ~ Surface, data = surface.full, correlation = corGaus(form = ~ Lon + Lat, nugget = TRUE), method = 'ML')
   
 })
 
-# 6 run 50 cv studies to assess predictive accuracy of of model in terms of biase, rpmse, coverage and width use a progress bar to 
+# run 50 cv studies to assess predictive accuracy of of model in terms of biase, rpmse, coverage and width use a progress bar to 
 # track the progress of the loop. compare these estimates to the predictions under an uncorrelated model with lm()
 set.seed(303)
 n.cv <- 50 
@@ -144,25 +143,25 @@ close(prog_b)
 # Statistical Inference  #
 ##########################
 
-# 1 use an F-test to see if temperatures are different across any of the land-cover types 
+# use an F-test to see if temperatures are different across any of the land-cover types 
 red_mod <- gls(model = Temp ~ 1, data = surface.full, correlation = corGaus(form = ~ Lon + Lat, nugget = TRUE), method = 'ML')
 anova(gaus_mod, red_mod)
-# 2 create confidence intervals for each effect of land cover and determine which land cover types result in increased temperatures. 
+# create confidence intervals for each effect of land cover and determine which land cover types result in increased temperatures. 
 gaus_mod$coefficients
 confint(gaus_mod, level = .95)
-# 3 perform a GLHT to construct a confidence interval of the difference in temperature between savannah and urban land covers 
+# perform a GLHT to construct a confidence interval of the difference in temperature between savannah and urban land covers 
 dif_sav <- t(c(1, 0, 0, 1, 0) - c(1, 0, 0, 0, 1))
 sav_ur <- glht(gaus_mod, linfct = matrix(dif_sav, nrow = 1), rhs = 0, alternative = 'two.sided') %>% confint()
 sav_ur
 
-# 4 create and map predictions of the temperature at each location that was impeded by cloud cover 
+# create and map predictions of the temperature at each location that was impeded by cloud cover 
 
 predict_na <- predictgls(gaus_mod, surface.na)
 missingpreds <- predictgls(gaus_mod, newdframe = surface.na)$Prediction
 surface$Temp[which(is.na(surface$Temp))] <- missingpreds 
 ggplot(surface, aes(x = Lon, y = Lat, fill = Temp)) + geom_raster() + scale_fill_distiller(palette = "Spectral", na.value = NA)
 # plot on top of google maps
-register_google(key = 'AIzaSyBYyAM4lUPH1ejCGdNiPsrR3rnzwPqwgJ0')
+register_google(key = 'my_key')
 bb <- make_bbox(lon = Lon, lat = Lat, data = predict_na)
 my_map <- get_map(location = bb, zoom = 11, maptype = 'satellite')
 ggmap(my_map) + geom_raster(data = surface, aes(x = Lon, y = Lat, fill = Temp), alpha = 0.8) + scale_fill_distiller(palette = 'Spectral', na.value = NA) + coord_cartesian()
